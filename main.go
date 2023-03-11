@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -19,11 +18,13 @@ type Entry struct {
 	Phone    string
 	Age      string
 	Major    string
+	IP       string
+	DateTime string
 }
 
 type Attend struct {
 	IP   string
-	Time time.Time
+	Time string
 }
 
 var DATA []Entry
@@ -48,12 +49,14 @@ func main() {
 	database := arguments[1]
 	tFile = arguments[2]
 
+	// Open database
 	db, err := sql.Open("sqlite3", database)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
+	// Modify the base
 	fmt.Println("Emptying database")
 	_, err = db.Exec("DELETE FROM data")
 	if err != nil {
@@ -62,9 +65,9 @@ func main() {
 	}
 
 	fmt.Println("Populating", database)
-	stmt, _ := db.Prepare("INSERT INTO data(fullname, phone, age, major) values(?,?,?,?)")
+	stmt, _ := db.Prepare("INSERT INTO data(fullname, phone, age, major, ip, datetime) values(?,?,?,?,?,?)")
 
-	// open file with data on students
+	// Open file with data on students
 	studFile, err := os.Open(dataFile)
 	if err != nil {
 		fmt.Println(err)
@@ -72,7 +75,16 @@ func main() {
 	}
 	defer studFile.Close()
 
+	// Open file with ip and time info
+	attendFile, err := os.Open(ipTimeFile)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer attendFile.Close()
+
 	studReader := bufio.NewReader(studFile)
+	attendReader := bufio.NewReader(attendFile)
 	for {
 		lineData, err := ReadAndCheck(studReader)
 		if err == 1 {
@@ -84,7 +96,18 @@ func main() {
 			continue
 		}
 
-		_, _ = stmt.Exec(lineData[0], lineData[1], lineData[2], lineData[3])
+		attendData, err := ReadAndCheck(attendReader)
+		if err == 1 {
+			break
+		} else if err == 2 {
+			fmt.Println("Error during reading the file")
+			return
+		} else if err == 3 {
+			continue
+		}
+
+		// Fill data into a table
+		_, _ = stmt.Exec(lineData[0], lineData[1], lineData[2], lineData[3], attendData[0], attendData[1])
 	}
 
 	rows, err := db.Query("SELECT * FROM data")
@@ -97,9 +120,11 @@ func main() {
 	var phone string
 	var age string
 	var major string
+	var ip string
+	var timeDate string
 	for rows.Next() {
-		err = rows.Scan(&fullName, &phone, &age, &major)
-		temp := Entry{FullName: fullName, Phone: phone, Age: age, Major: major}
+		err = rows.Scan(&fullName, &phone, &age, &major, &ip, &timeDate)
+		temp := Entry{FullName: fullName, Phone: phone, Age: age, Major: major, IP: ip, DateTime: timeDate}
 		DATA = append(DATA, temp)
 	}
 
