@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -20,9 +21,16 @@ type Entry struct {
 	Major    string
 }
 
+type Attend struct {
+	IP   string
+	Time time.Time
+}
+
 var DATA []Entry
+var IP_TIME []Attend
 var tFile string
 var dataFile string = "./data.txt"
+var ipTimeFile string = "./ip_date.txt"
 
 func myHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Host: %s Path: %s\n", r.Host, r.URL.Path)
@@ -56,30 +64,24 @@ func main() {
 	fmt.Println("Populating", database)
 	stmt, _ := db.Prepare("INSERT INTO data(fullname, phone, age, major) values(?,?,?,?)")
 
-	f, err := os.Open(dataFile)
+	// open file with data on students
+	studFile, err := os.Open(dataFile)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer f.Close()
+	defer studFile.Close()
 
-	reader := bufio.NewReader(f)
+	studReader := bufio.NewReader(studFile)
 	for {
-		line, err := reader.ReadString('\n')
-		if err == io.EOF {
+		lineData, err := ReadAndCheck(studReader)
+		if err == 1 {
 			break
-		} else if err != nil {
-			fmt.Println(err)
+		} else if err == 2 {
+			fmt.Println("Error during reading the file")
 			return
-		}
-
-		if strings.Contains(line, "//") {
+		} else if err == 3 {
 			continue
-		}
-
-		lineData := strings.Split(line, "|")
-		for _, value := range lineData {
-			value = strings.Trim(value, " ")
 		}
 
 		_, _ = stmt.Exec(lineData[0], lineData[1], lineData[2], lineData[3])
@@ -107,4 +109,26 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+}
+
+// Read and format the file
+func ReadAndCheck(reader *bufio.Reader) ([]string, int) {
+	line, err := reader.ReadString('\n')
+	if err == io.EOF {
+		return nil, 1
+	} else if err != nil {
+		fmt.Println(err)
+		return nil, 2
+	}
+
+	if strings.Contains(line, "//") {
+		return nil, 3
+	}
+
+	lineData := strings.Split(line, "|")
+	for _, value := range lineData {
+		value = strings.Trim(value, " ")
+	}
+
+	return lineData, 0
 }
