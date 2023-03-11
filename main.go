@@ -106,6 +106,8 @@ func main() {
 			continue
 		}
 
+		//checkIpv4_time(attendData)
+
 		// Fill data into a table
 		_, _ = stmt.Exec(lineData[0], lineData[1], lineData[2], lineData[3], attendData[0], attendData[1])
 	}
@@ -156,4 +158,9 @@ func ReadAndCheck(reader *bufio.Reader) ([]string, int) {
 	}
 
 	return lineData, 0
+}
+
+// Validate IPv4 address and time format
+func checkIpv4_time(line []string) {
+
 }
