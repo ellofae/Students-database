@@ -3,12 +3,16 @@ package main
 import (
 	"bufio"
 	"database/sql"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -106,7 +110,15 @@ func main() {
 			continue
 		}
 
-		//checkIpv4_time(attendData)
+		check := checkDate(attendData)
+		if check != nil {
+			continue
+		}
+
+		check = checkIPv4(attendData)
+		if check != nil {
+			continue
+		}
 
 		// Fill data into a table
 		_, _ = stmt.Exec(lineData[0], lineData[1], lineData[2], lineData[3], attendData[0], attendData[1])
@@ -160,7 +172,43 @@ func ReadAndCheck(reader *bufio.Reader) ([]string, int) {
 	return lineData, 0
 }
 
-// Validate IPv4 address and time format
-func checkIpv4_time(line []string) {
+// Validate date and time format
+func checkDate(line []string) error {
+	r := regexp.MustCompile(`.*\[(\d\d\/\w+/\d\d\d\d:\d\d:\d\d:\d\d.*)\].*`)
+	if r.MatchString(line[1]) {
+		match := r.FindStringSubmatch(line[1])
 
+		dt, err := time.Parse("02/Jan/2006:15:04:05 -0700", match[1])
+		if err == nil {
+			newFormat := dt.Format(time.RFC850)
+			line[1] = newFormat
+
+			//userLog.Printf("Attend date: %s ", line[1])
+		} else {
+			//errLog.Println("Invalid date format!")
+			line[1] = "None"
+		}
+
+		return nil
+	} else {
+		return errors.New("Not a valid date format")
+	}
+}
+
+// Validate IPv4 address format
+func checkIPv4(line []string) error {
+	partIP := "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
+	grammar := partIP + "\\." + partIP + "\\." + partIP + "\\." + partIP
+	r := regexp.MustCompile(grammar)
+
+	ip := r.FindString(line[0])
+	trial := net.ParseIP(ip)
+	if trial.To4() == nil {
+		//userLog.Println(" Invalid ip address: %s\n", line[0])
+		line[0] = "None"
+		return errors.New("Not a valid ip address format")
+	}
+	//userLog.Printf(" IPv4: %s \n", line[0])
+
+	return nil
 }
