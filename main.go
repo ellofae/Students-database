@@ -183,9 +183,7 @@ func checkDate(line []string) error {
 			newFormat := dt.Format(time.RFC850)
 			line[1] = newFormat
 
-			//userLog.Printf("Attend date: %s ", line[1])
 		} else {
-			//errLog.Println("Invalid date format!")
 			line[1] = "None"
 		}
 
@@ -204,11 +202,9 @@ func checkIPv4(line []string) error {
 	ip := r.FindString(line[0])
 	trial := net.ParseIP(ip)
 	if trial.To4() == nil {
-		//userLog.Println(" Invalid ip address: %s\n", line[0])
 		line[0] = "None"
 		return errors.New("Not a valid ip address format")
 	}
-	//userLog.Printf(" IPv4: %s \n", line[0])
 
 	return nil
 }
